@@ -2,6 +2,7 @@ import bodyParser, { json } from 'body-parser';
 import express from 'express';
 import { MongoClient, ObjectID } from 'mongodb';
 import path from 'path';
+import { checkEventAvailability } from './helpers';
 
 const app = express();
 
@@ -31,27 +32,34 @@ app.get('/api/events/get/', async (req, res) => {
     }, res);
 });
 
+// Create a new Event
 app.post('/api/events/add/', async (req, res) => {
     const { username, newEvent } = req.body;
 
     connectDB( async (database) => {
         const user = await database.collection('users').findOne({ username: username });
         if (user) {
-
-            if (user.eventList.find(event => event.start === newEvent.date)) {
-                console.log("Event Already Exists");
+            if (newEvent.start != newEvent.end) {
+                if (checkEventAvailability(user.eventList, newEvent)) {
+                    console.log("Adding New Event");
+                    await database.collection('users').updateOne({ username: username }, {
+                        '$set': {
+                            eventList: user.eventList.concat( newEvent )
+                        },
+                    });
+                    res.status(200).json({ message: "New Event Added!"});
+                } else {
+                    console.log("Time conflicts found. Please check your schedule!");
+                    res.status(500).json({ message: "Time conflicts found. Please check your schedule!"});
+                }
             } else {
-                await database.collection('users').updateOne({ username: username }, {
-                    '$set': {
-                        eventList: user.eventList.concat( newEvent )
-                    },
-                });
+                console.log("Event start and end cannot be the same!")
+                res.status(500).json({ message: "Event start and end cannot be the same!" });
             }
-            res.status(200).json({ message: "New Event Added! "});
         } else {
             res.status(500).json({ message: "Error!" });
         }
     }, res);
-})
+});
 
 app.listen(8000, () => console.log("Listening on port 8000"));
