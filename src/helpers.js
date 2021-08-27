@@ -18,3 +18,10 @@ export function checkEventAvailability( userEvents, newEvent ) {
 
     return true;
 }
+
+export function validateEvent( newEvent ) {
+    let newEventStart_DateObject = new Date(newEvent.start);
+    let newEventEnd_DateObject = new Date(newEvent.end);
+
+    return newEventStart_DateObject != newEventEnd_DateObject && newEventEnd_DateObject > newEventStart_DateObject;
+}

@@ -2,7 +2,7 @@ import bodyParser, { json } from 'body-parser';
 import express from 'express';
 import { MongoClient, ObjectID } from 'mongodb';
 import path from 'path';
-import { checkEventAvailability } from './helpers';
+import { checkEventAvailability, validateEvent } from './helpers';
 
 const app = express();
 
@@ -39,7 +39,8 @@ app.post('/api/events/add/', async (req, res) => {
     connectDB( async (database) => {
         const user = await database.collection('users').findOne({ username: username });
         if (user) {
-            if (newEvent.start != newEvent.end) {
+
+            if (validateEvent(newEvent)) {
                 if (checkEventAvailability(user.eventList, newEvent)) {
                     console.log("Adding New Event");
                     await database.collection('users').updateOne({ username: username }, {
@@ -50,10 +51,10 @@ app.post('/api/events/add/', async (req, res) => {
                     res.status(200).json({ message: "New Event Added!"});
                 } else {
                     console.log("Time conflicts found. Please check your schedule!");
-                    res.status(500).json({ message: "Time conflicts found. Please check your schedule!"});
+                    res.status(500).json({ message: "Time conflicts found. Please check your schedule!" });
                 }
             } else {
-                res.status(500).json({ message: "Event start and end cannot be the same!"});
+                res.status(500).json({ message: "Error in new event!" })
             }
         } else {
             res.status(500).json({ message: "Error!" });
@@ -64,6 +65,8 @@ app.post('/api/events/add/', async (req, res) => {
 // Cancel Event
 app.post('/api/events/cancel/', async (req,res) => {
     const { username, eventToDelete } = req.body;
+
+    console.log(eventToDelete);
 
     connectDB( async (database) => {
         const user = await database.collection('users').findOne({ username: username });
