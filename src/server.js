@@ -44,7 +44,7 @@ app.post('/api/events/add/', async (req, res) => {
                     console.log("Adding New Event");
                     await database.collection('users').updateOne({ username: username }, {
                         '$set': {
-                            eventList: user.eventList.concat( newEvent )
+                            eventList: user.eventList.concat(newEvent)
                         },
                     });
                     res.status(200).json({ message: "New Event Added!"});
@@ -53,12 +53,33 @@ app.post('/api/events/add/', async (req, res) => {
                     res.status(500).json({ message: "Time conflicts found. Please check your schedule!"});
                 }
             } else {
-                console.log("Event start and end cannot be the same!")
-                res.status(500).json({ message: "Event start and end cannot be the same!" });
+                res.status(500).json({ message: "Event start and end cannot be the same!"});
             }
         } else {
             res.status(500).json({ message: "Error!" });
         }
+    }, res);
+});
+
+// Cancel Event
+app.post('/api/events/cancel/', async (req,res) => {
+    const { username, eventToDelete } = req.body;
+
+    connectDB( async (database) => {
+        const user = await database.collection('users').findOne({ username: username });
+        if (user) {
+            let updatedEvents = user.eventList.filter(event => (event.start !== eventToDelete.start));
+            console.log("Deleting Event");
+            await database.collection('users').updateOne({ username: username }, {
+                '$set': {
+                    eventList: updatedEvents
+                },
+            });
+            res.status(200).json({ message: "Event Deleted!" });
+        } else {
+            res.status(500).json({ message: "Unable to delete Event!" });
+        }
+
     }, res);
 });
 
