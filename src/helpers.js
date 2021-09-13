@@ -25,3 +25,11 @@ export function validateEvent( newEvent ) {
 
     return newEventStart_DateObject != newEventEnd_DateObject && newEventEnd_DateObject > newEventStart_DateObject;
 }
+
+export function processDateTimeString( dateTimeString ) {
+    const timeZoneOffset = (new Date().getTimezoneOffset()) / 60;
+    const meetingTime = new Date(dateTimeString);
+    meetingTime.setHours(meetingTime.getHours() - (7 - timeZoneOffset));
+
+    return meetingTime.toISOString();
+}
