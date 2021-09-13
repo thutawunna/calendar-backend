@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npx babel-node src/server.js && npx babel-node src/app.js",
+    "start": "npx babel-node src/server.js",
     "authStart": "npx nodemon --exec npx babel-node src/authServer.js",
     "botStart": "npx nodemon --exec npx babel-node src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
