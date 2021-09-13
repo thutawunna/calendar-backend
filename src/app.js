@@ -96,7 +96,7 @@ const processEvent = async (session, event, say, client, body) => {
 
             console.log(extractedEntities['datetime']);
             
-            const response = await fetch('http://localhost:8000/api/slack/events/get', {
+            const response = await fetch('https://shielded-beach-58320.herokuapp.com/api/slack/events/get', {
             method: 'post',
             body: JSON.stringify({
                 slackUserID: event.user,
@@ -273,7 +273,7 @@ app.action('connect_slack_calendar_app', async ({ action, ack, body, say }) => {
     
     await ack();
     
-    const response = await fetch('http://localhost:8000/account/connect/slack', {
+    const response = await fetch('https://shielded-beach-58320.herokuapp.com/account/connect/slack', {
         method: 'post',
         body: JSON.stringify({
             slackUserID: user.id,
@@ -312,7 +312,7 @@ app.action('confirm_appointment_create', async ({ body, action, ack, say }) => {
             'participants': participants
         }
         
-        const response = await fetch('http://localhost:8000/api/slack/events/add/', {
+        const response = await fetch('https://shielded-beach-58320.herokuapp.com/api/slack/events/add/', {
             method: 'post',
             body: JSON.stringify({
                 slackID: user.id,
