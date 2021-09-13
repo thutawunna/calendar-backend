@@ -361,4 +361,4 @@ function generateAccessToken(user) {
     return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '600s'});
 }
 
-app.listen(8000, () => console.log("Listening on port 8000"));
+app.listen(process.env.PORT || 80, () => console.log(`Listening on ${process.env.PORT}`));
