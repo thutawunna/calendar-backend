@@ -361,4 +361,8 @@ function generateAccessToken(user) {
     return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '600s'});
 }
 
+app.get('*', (req,res) => {
+    res.sendFile(path.join(__dirname + '/build/index.html'));
+});
+
 app.listen(process.env.PORT || 80, () => console.log(`Listening on ${process.env.PORT}`));
