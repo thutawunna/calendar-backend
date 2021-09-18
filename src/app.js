@@ -94,69 +94,83 @@ const processEvent = async (session, event, say, client, body) => {
 
             extractedEntities['datetime'] = dateTime.toISOString();
 
-            console.log(extractedEntities['datetime']);
+            // console.log(extractedEntities);
             
             const response = await fetch('http://localhost:8000/api/slack/events/get', {
-            method: 'post',
-            body: JSON.stringify({
-                slackUserID: event.user,
-                date: extractedEntities['datetime'],
-                grain: extractedEntities['datetimeGrain']
-            }),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const responseJSON = await response.json();
-        const eventList = responseJSON['events'];
-        
-        let blockObject = [];
-        
-        if (eventList.length >= 1) {
-            eventList.forEach(event => {
-                let participants = '';
-                
-                event.participants.forEach(person => {
-                    participants += person;
-                    if (person != event.participants[event.participants.length -1]) {
-                        participants += ',';
-                    }
-                });
-                
-                const eventTitle = {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": `${event.title}`
-                    }
+                method: 'post',
+                body: JSON.stringify({
+                    slackUserID: event.user,
+                    date: extractedEntities['datetime'],
+                    grain: extractedEntities['datetimeGrain']
+                }),
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-                
-                const eventDetails = {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": `*- Date:* ${new Date(event.start).toLocaleDateString()}\n*- Time:* ${new Date(event.start).toLocaleTimeString()} to ${new Date(event.end).toLocaleTimeString()}\n*- Participants:* ${participants}`
-                    }
-                }
-                
-                blockObject.push(eventTitle);
-                blockObject.push({ "type": "divider" });
-                blockObject.push(eventDetails)
-                
             });
-            await say({ blocks: blockObject })
             
-        } else {
-            await say('You have no events planned.');
+            const responseJSON = await response.json();
+            const eventList = responseJSON['events'];
             
+            let blockObject = [];
+            
+            if (eventList.length >= 1) {
+                eventList.forEach(event => {
+                    let participants = '';
+                    
+                    event.participants.forEach(person => {
+                        participants += person;
+                        if (person != event.participants[event.participants.length -1]) {
+                            participants += ',';
+                        }
+                    });
+                    
+                    const eventTitle = {
+                        "type": "header",
+                        "text": {
+                            "type": "plain_text",
+                            "text": `${event.title}`
+                        }
+                    }
+                    
+                    const eventDetails = {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": `*- Date:* ${new Date(event.start).toLocaleDateString()}\n*- Time:* ${new Date(event.start).toLocaleTimeString()} to ${new Date(event.end).toLocaleTimeString()}\n*- Participants:* ${participants}`
+                        }
+                    }
+                    
+                    blockObject.push(eventTitle);
+                    blockObject.push({ "type": "divider" });
+                    blockObject.push(eventDetails)
+                    
+                });
+                await say({ blocks: blockObject })
+                
+            } else {
+                await say('You have no events planned.');
+                
+            }
         }
+        
+        
+        if (extractedEntities['intent'] === 'process_event') {
+            if (extractedEntities['action'] === 'create') {
+                handleCreateEvent(extractedEntities, say);
+            } else if (extractedEntities['action'] === 'cancel') {
+                handleCancelEvent(extractedEntities, say, event.user);
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error(error.toString());
     }
-    
-    
-    if (extractedEntities['intent'] === 'process_event') {
-        if (extractedEntities['action'] === 'create') {
-            const meetingDescription = extractedEntities['event_type'];
+}
+
+const handleCreateEvent = async ( extractedEntities, say ) => {
+    try {
+        const meetingDescription = extractedEntities['event_type'];
 
             let participants = '';
 
@@ -216,13 +230,79 @@ const processEvent = async (session, event, say, client, body) => {
                     }
                 ]
             });
+    } catch (error) {
+        console.error(error.toString());
+    }
+}
+
+const handleCancelEvent = async ( extractedEntities, say, userID ) => {
+    try {
+        const response = await fetch('http://localhost:8000/api/slack/events/get', {
+            method: 'post',
+            body: JSON.stringify({
+                slackUserID: userID,
+                date: extractedEntities['datetime'],
+                grain: extractedEntities['datetimeGrain'],
+                eventName: extractedEntities['event_type']
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const responseJSON = await response.json();
+        const eventList = responseJSON['events'];
+
+        console.log(`Event List: ${eventList}`);
+
+        if (eventList.length == 1) {
+            const event = eventList[0];
+            
+            const eventStartTime = new Date(event.start);
+
+            console.log(`Event: ${event}`)
+            await say({
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": `*Would you like to cancel this event?* \n\n*Appointment Date:* ${eventStartTime.toLocaleString()}\n*Appointment Type:* ${event.title}\n*Participants:* ${event.participants || 'None'}`
+                        }
+                    },
+                    {
+                        "type": "actions",
+                        "block_id": "verify_appointment",
+                        "elements": [
+                            {
+                                "type": "button",
+                                "text": {
+                                    "type": "plain_text",
+                                    "text": "Cancel"
+                                },
+                                "style": "danger",
+                                "action_id": "confirm_appointment_cancel",
+                                "value": `${eventStartTime.toISOString()}|${event.title}`
+                            },
+                            // {
+                            //     "type": "button",
+                            //     "text": {
+                            //         "type": "plain_text",
+                            //         "text": "Cancel"
+                            //     },
+                            //     "style": "danger",
+                            //     "action_id": "cancel_appointment_cancel",
+                            //     "value": "Cancel"
+                            // }
+                        ]
+                    }
+                ]
+            });
         }
+
+    } catch (error) {
+        console.error(error.toString());
     }
     
-    return null;
-} catch (error) {
-    console.error(error.toString());
-}
 }
 
 const handleMessage = async (event, say, client, body) => {
@@ -332,6 +412,38 @@ app.action('confirm_appointment_create', async ({ body, action, ack, say }) => {
     } catch (error) {
         console.error(error.toString());
     }
+});
+
+app.action('confirm_appointment_cancel', async ({ body, action, ack, say }) => {
+    const user = body.user;
+
+    await ack();
+
+    const payload = action['value'].split('|');
+
+    const eventStart = payload[0];
+    const title = payload[1];
+
+    const response = await fetch('http://localhost:8000/api/slack/events/cancel/', {
+        method: 'post',
+        body: JSON.stringify({
+            slackID: user.id,
+            eventStart: eventStart,
+            eventTitle: title
+        }),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+
+    if (response.status === 200) {
+        await say(`The ${title} has been cancelled`);
+    } else {
+        const responseJSON = await response.json();
+        await say(`${responseJSON.message}`);
+    }
+
+
 });
 
 app.action('cancel_appointment_create', async ({ ack, say }) => {

@@ -20,8 +20,8 @@ app.use(bodyParser.json());
 
 const connectDB = async ( operations, res ) => {
     try {
-        const uri = `mongodb+srv://calendar_app:${process.env.MONGODB_SECRET}@cluster0.cmuws.mongodb.net/calendar_app?retryWrites=true&w=majority`;
-        const client = await MongoClient.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+        // const uri = `mongodb+srv://calendar_app:${process.env.MONGODB_SECRET}@cluster0.cmuws.mongodb.net/calendar_app?retryWrites=true&w=majority`;
+        const client = await MongoClient.connect('mongodb://localhost:27017/', { useNewUrlParser: true });
         const database = client.db('calendar-app');
 
         await operations(database);
@@ -52,18 +52,17 @@ app.get('/api/events/get/', authenticateToken, async (req, res) => {
 app.post('/api/slack/events/get', async (req, res) => {
     
     connectDB( async (database) => {
-        const { slackUserID, date, grain } = req.body;
-        console.log(req.body);
-        const user = await database.collection('users').findOne({ slackAccountID: slackUserID });
+        const { slackUserID, date, grain, eventName } = req.body;
 
-        console.log(grain);
+        const user = await database.collection('users').findOne({ slackAccountID: slackUserID });
 
         if (user != null) {
             if (user.slackVerified) {
                 const eventList = user.eventList;
+
                 if (date) {
                     let filteredEventList;
-                    if (grain === 'day') {
+                    if (grain === 'day' || grain === 'hour') {
                         filteredEventList = eventList.filter(event => (
                             moment(date.split('T')[0]).isSame(moment(event.start.split('T')[0]), 'day')
                         ));
@@ -72,6 +71,16 @@ app.post('/api/slack/events/get', async (req, res) => {
                             moment(date.split('T')[0]).isSame(moment(event.start.split('T')[0]), 'week')
                         ));
                     }
+
+                    if (eventName) {
+                        const eventFiltered_Name = filteredEventList.filter(event => (
+                            event.title.toLowerCase() === eventName.toLowerCase()
+                        ));
+                        
+                        return res.status(200).json({ events: eventFiltered_Name });
+                    }
+
+                    
                     
                     console.log('Returning Events');
                     return res.status(200).json({ events: filteredEventList });
@@ -171,6 +180,28 @@ app.post('/api/events/cancel/', authenticateToken, async (req,res) => {
             let updatedEvents = user.eventList.filter(event => (event.start !== eventToDelete.start));
             console.log("Deleting Event");
             await database.collection('users').updateOne({ username: username }, {
+                '$set': {
+                    eventList: updatedEvents
+                },
+            });
+            res.status(200).json({ message: "Event Deleted!" });
+        } else {
+            res.status(500).json({ message: "Unable to delete Event!" });
+        }
+
+    }, res);
+});
+
+// Cancel Event (Slack)
+app.post('/api/slack/events/cancel/', async (req,res) => {
+    const { slackID, eventStart, eventTitle } = req.body;
+
+    connectDB( async (database) => {
+        const user = await database.collection('users').findOne({ slackAccountID: slackID });
+        if (user) {
+            let updatedEvents = user.eventList.filter(event => (event.start !== eventStart && event.title !== eventTitle ));
+            console.log("Deleting Event");
+            await database.collection('users').updateOne({ username: user.username }, {
                 '$set': {
                     eventList: updatedEvents
                 },
@@ -361,4 +392,4 @@ function generateAccessToken(user) {
     return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '600s'});
 }
 
-app.listen(process.env.PORT || 80, () => console.log(`Listening on ${process.env.PORT}`));
+app.listen(process.env.PORT || 8000, () => console.log(`Listening on ${process.env.PORT || 8000}`));
